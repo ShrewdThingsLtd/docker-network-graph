@@ -5,6 +5,7 @@ import argparse
 import random
 import docker
 import typing
+import ipaddress
 from dataclasses import dataclass
 from graphviz import Graph
 from graphviz.backend import FORMATS
@@ -64,8 +65,14 @@ def get_networks(client: docker.DockerClient, verbose: bool) -> typing.Dict[str,
         try:
             gateway = net.attrs["IPAM"]["Config"][0]["Gateway"]
         except (KeyError, IndexError):
-            # This network doesn't seem to be used, skip it
-            continue
+            try:
+                subnet = net.attrs["IPAM"]["Config"][0]["Subnet"]
+                hosts = list(ipaddress.IPv4Network(net.attrs["IPAM"]["Config"][0]["Subnet"]).hosts())
+                first_host = hosts[0]
+                gateway = first_host.exploded
+            except (KeyError, IndexError):
+                # This network doesn't seem to be used, skip it
+                continue
 
         internal = False
         try:
